@@ -12,14 +12,12 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"syscall"
 
 	"github.com/charmbracelet/vhs/lexer"
 	"github.com/charmbracelet/vhs/parser"
-	version "github.com/hashicorp/go-version"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -34,8 +32,6 @@ var (
 
 	// CommitSHA stores the commit SHA of VHS at the time of packaging through -ldflags
 	CommitSHA string
-
-	ttydMinVersion = version.Must(version.NewVersion("1.7.2"))
 
 	publishFlag bool
 	outputs     *[]string
@@ -290,17 +286,14 @@ func init() {
 	rootCmd.Version = Version
 }
 
-var versionRegex = regexp.MustCompile(`\d+\.\d+\.\d+`)
-
-// getVersion returns the parsed version of a program
-func getVersion(program string) *version.Version {
+// getVersion returns the version of a program
+func getVersion(program string) string {
 	cmd := exec.Command(program, "--version")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil
+		return ""
 	}
-	programVersion, _ := version.NewVersion(versionRegex.FindString(string(out)))
-	return programVersion
+	return string(out)
 }
 
 // ensureDependencies ensures that all dependencies are correctly installed
@@ -320,11 +313,8 @@ func ensureDependencies() error {
 	}
 
 	ttydVersion := getVersion("ttyd")
-	if ttydVersion == nil || ttydVersion.LessThan(ttydMinVersion) {
-		return fmt.Errorf("ttyd version (%s) is out of date, VHS requires %s\n%s",
-			ttydVersion,
-			ttydMinVersion,
-			"Install the latest version from: https://github.com/tsl0922/ttyd")
+	if !strings.Contains(ttydVersion, "https://github.com/lusingander/ttyd") {
+		return fmt.Errorf("this VHS is a fork version: https://github.com/lusingander/ttyd is required")
 	}
 
 	return nil

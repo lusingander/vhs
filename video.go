@@ -20,6 +20,7 @@ import (
 const (
 	textFrameFormat   = "frame-text-%05d.png"
 	cursorFrameFormat = "frame-cursor-%05d.png"
+	imageFrameFormat  = "frame-image-%05d.png"
 )
 
 const (
@@ -92,13 +93,14 @@ func ensureDir(output string) {
 // buildFFopts assembles an ffmpeg command from some VideoOptions
 func buildFFopts(opts VideoOptions, targetFile string) []string {
 	var args []string
-	streamCounter := 2
+	streamCounter := 3
 
 	streamBuilder := NewStreamBuilder(streamCounter, opts.Input, opts.Style)
 
 	// Input frame options, used no matter what
 	// Stream 0: text frames
 	// Stream 1: cursor frames
+	// Stream 2: image frames
 	streamBuilder.args = append(streamBuilder.args,
 		"-y",
 		"-r", fmt.Sprint(opts.Framerate),
@@ -107,6 +109,9 @@ func buildFFopts(opts VideoOptions, targetFile string) []string {
 		"-r", fmt.Sprint(opts.Framerate),
 		"-start_number", fmt.Sprint(opts.StartingFrame),
 		"-i", filepath.Join(opts.Input, cursorFrameFormat),
+		"-r", fmt.Sprint(opts.Framerate),
+		"-start_number", fmt.Sprint(opts.StartingFrame),
+		"-i", filepath.Join(opts.Input, imageFrameFormat),
 	)
 
 	streamBuilder = streamBuilder.

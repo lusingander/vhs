@@ -56,8 +56,9 @@ func MakeScreenshots(opts ScreenshotOptions) []*exec.Cmd {
 	for path, frame := range opts.screenshots {
 		cursorStream := filepath.Join(opts.input, fmt.Sprintf(cursorFrameFormat, frame))
 		textStream := filepath.Join(opts.input, fmt.Sprintf(textFrameFormat, frame))
+		imageStream := filepath.Join(opts.input, fmt.Sprintf(imageFrameFormat, frame))
 
-		args := opts.buildFFopts(path, textStream, cursorStream)
+		args := opts.buildFFopts(path, textStream, cursorStream, imageStream)
 
 		//nolint:gosec
 		cmds = append(cmds, exec.Command(
@@ -70,18 +71,20 @@ func MakeScreenshots(opts ScreenshotOptions) []*exec.Cmd {
 }
 
 // buildFFopts assembles an ffmpeg command from some VideoOptions.
-func (opts *ScreenshotOptions) buildFFopts(targetFile, textStream, cursorStream string) []string {
+func (opts *ScreenshotOptions) buildFFopts(targetFile, textStream, cursorStream, imageStream string) []string {
 	var args []string
-	streamCounter := 2
+	streamCounter := 3
 
 	streamBuilder := NewStreamBuilder(streamCounter, opts.input, opts.style)
 	// Input frame options, used no matter what
 	// Stream 0: text frames
 	// Stream 1: cursor frames
+	// Stream 2: image frames
 	streamBuilder.args = append(streamBuilder.args,
 		"-y",
 		"-i", textStream,
 		"-i", cursorStream,
+		"-i", imageStream,
 	)
 
 	streamBuilder = streamBuilder.

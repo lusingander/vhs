@@ -26,6 +26,7 @@ type VHS struct {
 	browser      *rod.Browser
 	TextCanvas   *rod.Element
 	CursorCanvas *rod.Element
+	ImageCanvas  *rod.Element
 	mutex        *sync.Mutex
 	started      bool
 	recording    bool
@@ -165,9 +166,14 @@ func (vhs *VHS) Setup() {
 	height := vhs.Options.Video.Style.Height - double(padding) - double(margin) - bar
 	vhs.Page = vhs.Page.MustSetViewport(width, height, 0, false)
 
-	// Find xterm.js canvases for the text and cursor layer for recording.
+	// Find xterm.js canvases for the text, cursor and image layer for recording.
 	vhs.TextCanvas, _ = vhs.Page.Element("canvas.xterm-text-layer")
 	vhs.CursorCanvas, _ = vhs.Page.Element("canvas.xterm-cursor-layer")
+
+	if has, _, _ := vhs.Page.Has("canvas.xterm-image-layer"); !has {
+		panic("xterm-image-layer not found")
+	}
+	vhs.ImageCanvas, _ = vhs.Page.Element("canvas.xterm-image-layer")
 
 	// Apply options to the terminal
 	// By this point the setting commands have been executed, so the `opts` struct is up to date.
@@ -289,6 +295,18 @@ func (vhs *VHS) ApplyLoopOffset() error {
 				errCh <- fmt.Errorf("error applying offset to text frame: %w", err)
 			}
 		}(counter)
+
+		wg.Add(1)
+		go func(frameNum int) {
+			defer wg.Done()
+			offsetFrameNum := frameNum + vhs.totalFrames
+			if err := os.Rename(
+				filepath.Join(vhs.Options.Video.Input, fmt.Sprintf(imageFrameFormat, frameNum)),
+				filepath.Join(vhs.Options.Video.Input, fmt.Sprintf(imageFrameFormat, offsetFrameNum)),
+			); err != nil {
+				errCh <- fmt.Errorf("error applying offset to image frame: %w", err)
+			}
+		}(counter)
 	}
 
 	go func() {
@@ -340,8 +358,9 @@ func (vhs *VHS) Record(ctx context.Context) <-chan error {
 
 				cursor, cursorErr := vhs.CursorCanvas.CanvasToImage("image/png", quality)
 				text, textErr := vhs.TextCanvas.CanvasToImage("image/png", quality)
-				if textErr != nil || cursorErr != nil {
-					ch <- fmt.Errorf("error: %v, %v", textErr, cursorErr)
+				image, imageErr := vhs.ImageCanvas.CanvasToImage("image/png", quality)
+				if textErr != nil || cursorErr != nil || imageErr != nil {
+					ch <- fmt.Errorf("error: %v, %v, %v", textErr, cursorErr, imageErr)
 					continue
 				}
 
@@ -360,6 +379,14 @@ func (vhs *VHS) Record(ctx context.Context) <-chan error {
 					os.ModePerm,
 				); err != nil {
 					ch <- fmt.Errorf("error writing text frame: %w", err)
+					continue
+				}
+				if err := os.WriteFile(
+					filepath.Join(vhs.Options.Video.Input, fmt.Sprintf(imageFrameFormat, counter)),
+					image,
+					os.ModePerm,
+				); err != nil {
+					ch <- fmt.Errorf("error writing image frame: %w", err)
 					continue
 				}
 
