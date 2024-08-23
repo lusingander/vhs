@@ -1,3 +1,50 @@
+> [!NOTE]
+> This repository is a fork of [VHS](https://github.com/charmbracelet/vhs) to provide a workaround and investigation for [terminal graphics support issue](https://github.com/charmbracelet/vhs/issues/43).
+> 
+> This repository depends on a [fork of ttyd](https://github.com/lusingander/ttyd). You must build this ttyd in order for it to work properly.
+>
+> There are some known issues:
+>
+> - Image layers are sometimes not output
+>   - The cause is unknown
+> - `Set Sixel Enabled` is not supported
+>   - It is always enabled
+>
+> See the following commit for details:
+>
+> - https://github.com/lusingander/vhs/commit/196d2841cef0e2656ddfe2408c854de6a2d877a9
+>
+> The direct problem is that xterm.js (addon) creates and destroys a canvas (`xterm-image-layer`) each time it is needed.
+> - https://github.com/jerch/xterm-addon-image/issues/55
+> - https://github.com/jerch/xterm-addon-image/pull/56
+>
+> This ensures that the `xterm-image-layer` exists only as long as there is an image on the screen.
+> Therefore, the previous method does not handle `xterm-image-layer` correctly.
+>
+> I have three possible solutions:
+> 1. Add a mechanism to xterm.js that allows you to switch between lazy creating canvas options
+> 2. Modify the mechanism for vhs layer processing
+> 3. Process on the vhs side so that a (dummy) image is always displayed
+>
+> (1) is probably the most correct way, but it requires adding some rarely used options to xterm.js, as well as ttyd, and changing the minimum version of ttyd required by vhs.
+>
+> (2) significantly affects the internal design of vhs. Also, it is wasteful to get the canvas from the DOM every time.
+>
+> (3) is a fairly hacky method, and I'm not sure if it's possible to keep the display on while the command is being executed.
+>
+> In this repository, I have verified that it works by forking `ttyd` and fixing `xterm-addon-image` to an older version (before the above fix was introduced).
+>
+> https://github.com/lusingander/ttyd
+>
+
+Here's a working demo of [serie](https://github.com/lusingander/serie) and [stu](https://github.com/lusingander/stu):
+
+![serie](./serie.gif)
+
+![stu](./stu.gif)
+
+----
+
 # VHS
 
 <p>
